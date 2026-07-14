@@ -1,150 +1,92 @@
-# 🪙 Tidas Gold Gallery
+# طلاگستر (TalaGold) — فروشگاه آنلاین طلا و جواهر
 
-**E-commerce platform for premium gold jewelry and accessories.**  
-Built with modern web technologies for performance, security, and scalability.
+استک: Next.js 14 (App Router) · TypeScript · Prisma ORM · NextAuth · Tailwind CSS · shadcn/ui · react-hook-form + zod · uploadthing
 
-🌐 [www.tidasgold.ir](https://www.tidasgold.ir)
+## وضعیت فعلی
 
----
+✅ به Neon Postgres وصل است — محصولات و کاربران واقعاً از دیتابیس خوانده می‌شوند.
+⏳ فقط درگاه پرداخت زرین‌پال هنوز به‌صورت کامل وایر نشده (بخش «مرحله بعد» را ببین).
 
-## 🚀 Tech Stack
-
-| Technology       | Description                                                    |
-| ---------------- | -------------------------------------------------------------- |
-| **Next.js 14**   | React framework for full-stack web apps with server components |
-| **Prisma ORM**   | Type-safe database toolkit for PostgreSQL/MySQL/SQLite         |
-| **Tailwind CSS** | Utility-first CSS framework for rapid UI development           |
-| **shadcn/ui**    | Reusable, accessible, and beautifully styled UI components     |
-| **UploadThing**  | Simple file uploads (e.g. product images, banners)             |
-| **Zod**          | Schema validation for type safety and form validation          |
-| **NextAuth.js**  | Authentication with providers and session management           |
-
----
-
-## 🛍️ Features
-
-- 🧭 **Dynamic product catalog** — Manage collections, categories, and details
-- 🔒 **User authentication** — Secure login/register with NextAuth
-- 💳 **Cart & checkout** — Add to cart, manage quantities, and process orders
-- 🖼️ **Image uploads** — Product and banner uploads with UploadThing
-- 🧩 **Admin dashboard** — Manage products, inventory, and users
-- 🎨 **Modern UI** — Built with Tailwind CSS and shadcn/ui components
-- ⚡ **Optimized performance** — Next.js Server Actions & edge-ready APIs
-
----
-
-## 🧱 Project Structure
-
-```
-tidasgold-gallery/
-├── app/                  # Next.js App Router
-│   ├── (auth)/           # Auth pages (login, register)
-│   ├── (shop)/           # Storefront pages
-│   ├── admin/            # Admin dashboard
-│   └── api/              # API routes (Next.js server actions)
-├── components/           # Reusable UI components
-├── lib/                  # Utilities (db, auth, validations)
-├── prisma/               # Prisma schema and migrations
-├── public/               # Static assets
-└── styles/               # Global styles and Tailwind setup
-```
-
----
-
-## ⚙️ Installation
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/yourusername/tidasgold-gallery.git
-   cd tidasgold-gallery
-   ```
-
-2. **Install dependencies**
-
-   ```bash
-   npm install
-   # or
-   pnpm install
-   ```
-
-3. **Setup environment variables**
-
-   Create a `.env` file in the root directory:
-
-   ```env
-   DATABASE_URL="your_database_connection_url"
-   NEXTAUTH_SECRET="your_nextauth_secret"
-   NEXTAUTH_URL="http://localhost:3000"
-   UPLOADTHING_SECRET="your_uploadthing_secret"
-   UPLOADTHING_APP_ID="your_uploadthing_app_id"
-   ```
-
-4. **Run Prisma migrations**
-
-   ```bash
-   npx prisma db push
-   # or
-   npx prisma migrate dev
-   ```
-
-5. **Start the development server**
-
-   ```bash
-   npm run dev
-   ```
-
-   Your app will be running at **[http://localhost:3000](http://localhost:3000)**
-
----
-
-## 🔑 Environment Variables
-
-| Variable             | Description                    |
-| -------------------- | ------------------------------ |
-| `DATABASE_URL`       | Prisma database connection URL |
-| `NEXTAUTH_SECRET`    | Secret key for NextAuth        |
-| `NEXTAUTH_URL`       | Base URL for auth callbacks    |
-| `UPLOADTHING_SECRET` | Secret key for UploadThing     |
-| `UPLOADTHING_APP_ID` | App ID for UploadThing         |
-
----
-
-## 🧩 Scripts
-
-| Command             | Description                          |
-| ------------------- | ------------------------------------ |
-| `npm run dev`       | Start development server             |
-| `npm run build`     | Build for production                 |
-| `npm run start`     | Start production server              |
-| `npx prisma studio` | Open Prisma Studio for DB inspection |
-
----
-
-## 🛠️ Deployment
-
-Deploy easily to **Vercel**:
+## نصب و اجرا
 
 ```bash
-vercel deploy
+npm install
+npx prisma db push     # ساخت جدول‌ها روی نئون طبق schema.prisma
+npm run db:seed        # پر کردن دیتابیس با محصولات نمونه و کاربر تستی
+npm run dev
 ```
 
-Ensure that all `.env` variables are added to your **Vercel Project Settings**.
+فایل `.env` از قبل با مقادیر واقعی (Neon, NextAuth, uploadthing, زرین‌پال) پر شده.
 
----
+### ورود آزمایشی
+- مشتری: `demo@talagold.ir` / `123456`
+- ادمین: `admin@talagold.ir` / `admin123`
 
-## 🧑‍💻 Author
+## ساختار پروژه
 
-**Mohsen Sami**  
-Crafted with 💛 using modern web technologies.  
-📍 [www.tidasgold.ir](https://tidasgold.ir)
+```
+prisma/schema.prisma        اسکیمای کامل دیتابیس (User, Product, Order, ...)
+src/lib/constants.ts        ← قیمت طلا + تنظیمات سایت (پایین توضیح داده شده)
+src/lib/data/products.ts    داده استاتیک محصولات (جایگزین موقت جدول Product)
+src/lib/data/users.ts       کاربر نمونه (جایگزین موقت جدول User)
+src/lib/price.ts            فرمول محاسبه قیمت نهایی طلا
+src/lib/auth.ts             تنظیمات next-auth
+src/app/api/uploadthing/    روت‌های آپلود تصویر
+src/components/ui/          کامپوننت‌های shadcn (button, input, card, ...)
+src/components/product/     کارت محصول، گالری، فرم افزودن به سبد، ...
+src/context/cart-context.tsx سبد خرید (ذخیره در localStorage)
+```
 
----
+## بروزرسانی دستی قیمت طلا
 
-## 📜 License
+فایل `src/lib/constants.ts` را باز کن:
 
-This project is licensed under the **MIT License** — feel free to use, modify, and distribute.
+```ts
+export const GOLD_PRICE = {
+  pricePerGram18k: 6_850_000, // ← این عدد را با قیمت روز طلای ۱۸ عیار (تومان) عوض کن
+  changePercent: 0.8,
+  lastUpdatedAt: "2026-07-13T09:30:00+03:30",
+};
+```
 
----
+قیمت نهایی هر محصول با فرمول رایج ایران محاسبه می‌شود (در `src/lib/price.ts`):
 
-> _"Elegance meets innovation — Tidas Gold Gallery redefines online jewelry shopping."_
+```
+قیمت‌کل = (قیمت‌گرم × وزن + اجرت) × (۱ + سود٪) × (۱ + مالیات٪)
+```
+
+وقتی بعداً به یک API قیمت طلا وصل شدیم، کافی‌ست `GOLD_PRICE.pricePerGram18k` را به‌جای مقدار ثابت، از یک fetch (با `revalidate` کوتاه، مثلاً هر ۵ دقیقه) بخوانیم.
+
+## مرحله بعد — وصل کردن سرویس‌های واقعی
+
+### ۱) دیتابیس Neon Postgres
+1. در [neon.tech](https://neon.tech) یک پروژه بساز.
+2. مقدار `DATABASE_URL` (pooled) و `DIRECT_URL` (unpooled) را در `.env` بگذار.
+3. اجرا کن:
+   ```bash
+   npx prisma db push
+   npx prisma generate
+   ```
+4. در `src/lib/auth.ts` طبق کامنت‌های داخل فایل، `PrismaAdapter` را فعال کن و `authorize()` را به‌جای `STATIC_USERS` به `prisma.user.findUnique` وصل کن.
+5. در `src/lib/data/products.ts`، توابع `getAllProducts` و بقیه را به‌جای خواندن از آرایه `PRODUCTS`، به `prisma.product.findMany()` وصل کن (ساختار مدل‌ها از قبل یکی است، پس این تغییر خیلی کوچک خواهد بود).
+6. فایل `src/lib/data/users.ts` را می‌توانی بعد از این مرحله حذف کنی.
+
+### ۲) uploadthing
+1. در [uploadthing.com](https://uploadthing.com) اپ بساز و `UPLOADTHING_TOKEN` را در `.env` بگذار.
+2. آپلودر از قبل در `src/app/api/uploadthing/core.ts` تعریف شده (برای تصویر محصول و آواتار کاربر). فقط کافی‌ست کامپوننت `UploadButton` از `src/lib/uploadthing.ts` را در پنل مدیریت محصول (که باید بسازی) استفاده کنی.
+
+### ۳) زرین‌پال
+1. مرچنت‌کد را از پنل زرین‌پال بگیر و در `ZARINPAL_MERCHANT_ID` بگذار.
+2. طبق کامنت‌های داخل `src/app/checkout/page.tsx`، دو Route Handler بساز:
+   - `POST /api/checkout/create-order` → سفارش را با Prisma ثبت کند و با API زرین‌پال (`PaymentRequest`) یک `authority` بگیرد، بعد کاربر را به `https://www.zarinpal.com/pg/StartPay/{authority}` بفرستد.
+   - `GET /api/checkout/verify` → بعد از بازگشت کاربر از درگاه، با `PaymentVerification` وضعیت را چک کند و سفارش را `PROCESSING` کند.
+
+## پنل ادمین
+
+فعلاً ساخته نشده. وقتی دیتابیس وصل شد، پیشنهاد می‌شود صفحات زیر اضافه شوند: `/admin/products` (CRUD محصول با فرم react-hook-form + zod + آپلود تصویر با uploadthing)، `/admin/orders` (تغییر وضعیت سفارش).
+
+## نکات
+
+- تمام صفحات و متن‌ها فارسی و RTL هستند (فونت Vazirmatn).
+- پالت رنگی: زمینه عاجی گرم، طلایی عتیقه (gold-400 تا gold-900) و لعابی شرابی (wine) برای دکمه‌های ثانویه/تخفیف — الهام‌گرفته از حس یک جواهرفروشی، نه رنگ‌های پیش‌فرض قالب‌های آماده.
+- سبد خرید فعلاً در `localStorage` مرورگر ذخیره می‌شود؛ بعد از اتصال دیتابیس می‌توان آن را per-user در جدول `Order` هم پایدار کرد.
