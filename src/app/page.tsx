@@ -3,15 +3,20 @@ import { Hero } from "@/components/home/hero";
 import { CategoryGrid } from "@/components/home/category-grid";
 import { ProductGrid } from "@/components/product/product-grid";
 import { getFeaturedProducts, getNewProducts } from "@/lib/data/products";
+import { getGoldPrice } from "@/lib/data/settings";
 import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {
-  const featured = await getFeaturedProducts();
-  const newest = await getNewProducts();
+  const [featured, newest, goldPrice] = await Promise.all([
+    getFeaturedProducts(),
+    getNewProducts(),
+    getGoldPrice(),
+  ]);
+  const pricePerGram = goldPrice.pricePerGram18k;
 
   return (
     <>
-      <Hero />
+      <Hero pricePerGram={pricePerGram} />
       <CategoryGrid />
 
       <section className="container py-12">
@@ -21,7 +26,7 @@ export default async function HomePage() {
             <Link href="/products">مشاهده همه</Link>
           </Button>
         </div>
-        <ProductGrid products={featured} />
+        <ProductGrid products={featured} pricePerGram={pricePerGram} />
       </section>
 
       <section className="container py-12">
@@ -31,10 +36,10 @@ export default async function HomePage() {
             <Link href="/products">مشاهده همه</Link>
           </Button>
         </div>
-        <ProductGrid products={newest} />
+        <ProductGrid products={newest} pricePerGram={pricePerGram} />
       </section>
 
-      <section className="bg-wine text-white">
+      <section className="bg-navy-900 text-white">
         <div className="container py-14 text-center">
           <h2 className="font-display text-2xl md:text-3xl font-bold">
             عضو خبرنامه قیمت طلا شوید

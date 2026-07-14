@@ -6,8 +6,8 @@ import { toToman } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Star } from "lucide-react";
 
-export function ProductCard({ product }: { product: Product }) {
-  const { total } = calculateGoldPrice(product);
+export function ProductCard({ product, pricePerGram }: { product: Product; pricePerGram: number }) {
+  const { total } = calculateGoldPrice(product, pricePerGram);
 
   return (
     <Link

@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { addressSchema, type AddressInput } from "@/lib/validations/checkout";
 import { useCart } from "@/context/cart-context";
-import { calculateGoldPrice } from "@/lib/price";
 import { toToman } from "@/lib/utils";
 import { SHIPPING } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
@@ -12,10 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Lock, LogIn } from "lucide-react";
+import Link from "next/link";
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart, getProduct } = useCart();
+  const { status } = useSession();
   const router = useRouter();
 
   const {
@@ -27,19 +29,41 @@ export default function CheckoutPage() {
   const shippingCost = totalPrice >= SHIPPING.freeShippingThreshold ? 0 : SHIPPING.standardCost;
 
   async function onSubmit(data: AddressInput) {
-    // TODO: وقتی کلید زرین‌پال آماده شد:
-    // 1) این داده‌ها + سبد خرید را به یک Route Handler مثل
-    //    /api/checkout/create-order بفرست
-    // 2) آن route با Prisma یک Order با status=PENDING_PAYMENT بسازد
-    // 3) با API زرین‌پال (PaymentRequest) یک authority بگیرد و کاربر را به
-    //    درگاه ریدایرکت کند: https://www.zarinpal.com/pg/StartPay/{authority}
-    // 4) بعد از بازگشت کاربر، در /api/checkout/verify با Verification
-    //    زرین‌پال، وضعیت سفارش را PROCESSING کند.
-    await new Promise((r) => setTimeout(r, 900));
-    console.log("سفارش (نمونه):", { address: data, items, totalPrice: totalPrice + shippingCost });
-    toast.success("سفارش شما ثبت شد (حالت نمایشی — درگاه پرداخت هنوز وصل نیست)");
-    clearCart();
-    router.push("/");
+    // سفارش واقعاً در دیتابیس ثبت می‌شود (قیمت‌ها دوباره سمت سرور محاسبه می‌شوند تا امن باشد).
+    // TODO مرحله بعد: بعد از ساخته‌شدن سفارش، با API زرین‌پال (PaymentRequest) یک
+    // authority بگیر و کاربر را به https://www.zarinpal.com/pg/StartPay/{authority}
+    // بفرست. بعد از بازگشت کاربر، در یک روت verify وضعیت سفارش را PROCESSING کن.
+    try {
+      const res = await fetch("/api/checkout/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: data, items }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        toast.error(json.error ?? "خطا در ثبت سفارش");
+        return;
+      }
+
+      toast.success("سفارش شما ثبت شد (درگاه پرداخت هنوز وصل نیست — سفارش در وضعیت در انتظار پرداخت ماند)");
+      clearCart();
+      router.push("/");
+    } catch {
+      toast.error("ارتباط با سرور برقرار نشد، دوباره تلاش کنید");
+    }
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="container flex flex-col items-center justify-center gap-4 py-24 text-center">
+        <LogIn className="h-10 w-10 text-gold-500" />
+        <p className="font-bold">برای ادامه خرید ابتدا وارد حساب کاربری شوید</p>
+        <Button variant="gold" size="lg" asChild>
+          <Link href="/login">ورود / ثبت‌نام</Link>
+        </Button>
+      </div>
+    );
   }
 
   if (items.length === 0) {
@@ -91,10 +115,10 @@ export default function CheckoutPage() {
 
           <Button type="submit" variant="gold" size="lg" className="w-full mt-4" disabled={isSubmitting}>
             <Lock className="h-4 w-4" />
-            {isSubmitting ? "در حال انتقال..." : "پرداخت با زرین‌پال"}
+            {isSubmitting ? "در حال ثبت سفارش..." : "پرداخت با زرین‌پال"}
           </Button>
           <p className="text-xs text-muted-foreground text-center">
-            درگاه پرداخت هنوز به کلید واقعی زرین‌پال وصل نیست — این ثبت سفارش فقط نمایشی است.
+            سفارش واقعاً در دیتابیس ثبت می‌شود؛ فقط اتصال درگاه پرداخت زرین‌پال هنوز کامل نیست.
           </p>
         </form>
 
@@ -107,7 +131,7 @@ export default function CheckoutPage() {
               return (
                 <li key={product.id + (item.size ?? "")} className="flex justify-between">
                   <span>{product.title} × {item.quantity}</span>
-                  <span>{toToman(calculateGoldPrice(product).total * item.quantity)}</span>
+                  <span>{toToman((product.finalPrice ?? 0) * item.quantity)}</span>
                 </li>
               );
             })}

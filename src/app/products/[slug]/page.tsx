@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProductBySlug, getRelatedProducts } from "@/lib/data/products";
+import { getGoldPrice } from "@/lib/data/settings";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { PriceBreakdown } from "@/components/product/price-breakdown";
 import { AddToCartForm } from "@/components/product/add-to-cart-form";
@@ -18,7 +19,11 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
   const product = await getProductBySlug(params.slug);
   if (!product) notFound();
 
-  const related = await getRelatedProducts(product);
+  const [related, goldPrice] = await Promise.all([
+    getRelatedProducts(product),
+    getGoldPrice(),
+  ]);
+  const pricePerGram = goldPrice.pricePerGram18k;
 
   return (
     <div className="container py-8">
@@ -56,7 +61,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
           </p>
 
           <div className="mt-6">
-            <PriceBreakdown product={product} />
+            <PriceBreakdown product={product} pricePerGram={pricePerGram} />
           </div>
 
           <div className="mt-6">
@@ -73,7 +78,7 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
       {related.length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-xl font-bold mb-6">محصولات مشابه</h2>
-          <ProductGrid products={related} />
+          <ProductGrid products={related} pricePerGram={pricePerGram} />
         </section>
       )}
     </div>

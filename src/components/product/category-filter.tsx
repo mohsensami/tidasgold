@@ -1,8 +1,14 @@
 import Link from "next/link";
-import { CATEGORIES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import type { Category } from "@/types";
 
-export function CategoryFilter({ active }: { active?: string }) {
+export function CategoryFilter({
+  categories,
+  active,
+}: {
+  categories: Category[];
+  active?: string;
+}) {
   return (
     <div className="space-y-1">
       <h3 className="font-bold text-sm mb-3">دسته‌بندی</h3>
@@ -15,7 +21,7 @@ export function CategoryFilter({ active }: { active?: string }) {
       >
         همه محصولات
       </Link>
-      {CATEGORIES.map((c) => (
+      {categories.map((c) => (
         <Link
           key={c.slug}
           href={`/products?category=${c.slug}`}

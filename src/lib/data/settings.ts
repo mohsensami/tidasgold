@@ -1,0 +1,37 @@
+import { prisma } from "@/lib/prisma";
+import { withRetry, DatabaseUnavailableError } from "@/lib/db-retry";
+import type { GoldPrice } from "@/types";
+
+/**
+ * قیمت طلا از جدول Setting خوانده می‌شود (نه یک مقدار ثابت در کد).
+ * بعداً که یک ادمین‌پنل ساختی، کافی‌ست یک فرم بسازی که با
+ * prisma.setting.update(...) همین رکورد را آپدیت کند و همه‌جای سایت
+ * آنی قیمت جدید را می‌بیند (چون هر بار از دیتابیس خوانده می‌شود).
+ */
+export async function getGoldPrice(): Promise<GoldPrice> {
+  const setting = await withRetry(() =>
+    prisma.setting.findUniqueOrThrow({ where: { id: "singleton" } })
+  );
+
+  return {
+    pricePerGram18k: setting.goldPricePerGram18k,
+    changePercent: setting.goldPriceChangePercent,
+    updatedAt: setting.updatedAt.toISOString(),
+  };
+}
+
+export async function updateGoldPrice(pricePerGram18k: number, changePercent: number) {
+  return withRetry(() =>
+    prisma.setting.upsert({
+      where: { id: "singleton" },
+      update: { goldPricePerGram18k: pricePerGram18k, goldPriceChangePercent: changePercent },
+      create: {
+        id: "singleton",
+        goldPricePerGram18k: pricePerGram18k,
+        goldPriceChangePercent: changePercent,
+      },
+    })
+  );
+}
+
+export { DatabaseUnavailableError };

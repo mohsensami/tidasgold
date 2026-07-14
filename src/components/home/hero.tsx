@@ -1,12 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { GOLD_PRICE } from "@/lib/constants";
 import { toToman } from "@/lib/utils";
 
-export function Hero() {
+export function Hero({ pricePerGram }: { pricePerGram: number }) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-gold-900 via-gold-800 to-background">
+    <section className="relative overflow-hidden bg-gradient-to-b from-navy-900 via-navy-800 to-background">
       <div className="container grid gap-8 py-14 md:grid-cols-2 md:py-24 items-center">
         <div className="relative z-10 text-center md:text-right">
           <span className="inline-block rounded-full border border-gold-300/40 bg-gold-50/10 px-4 py-1 text-xs font-medium text-gold-100">
@@ -36,7 +35,7 @@ export function Hero() {
           </div>
           <p className="mt-6 text-sm text-gold-100/70">
             قیمت لحظه‌ای هر گرم طلای ۱۸ عیار:{" "}
-            <span className="font-bold text-gold-100">{toToman(GOLD_PRICE.pricePerGram18k)}</span>
+            <span className="font-bold text-gold-100">{toToman(pricePerGram)}</span>
           </p>
         </div>
 

@@ -1,17 +1,20 @@
 export type Karat = 18 | 21 | 24;
 
-export type CategorySlug =
-  | "rings"
-  | "necklaces"
-  | "bracelets"
-  | "earrings"
-  | "sets"
-  | "coins";
+/** اسلاگ دسته‌بندی — دیگر union ثابت نیست چون دسته‌بندی‌ها از دیتابیس می‌آیند و قابل افزودن هستند */
+export type CategorySlug = string;
+
+export interface Category {
+  id: string;
+  slug: string;
+  title: string;
+  titleEn?: string | null;
+  image?: string | null;
+  order: number;
+}
 
 /**
- * ساختار محصول — عیناً منطبق با مدل Product در prisma/schema.prisma
- * تا وقتی دیتابیس وصل شد، فقط منبع داده از این آبجکت استاتیک به
- * prisma.product.findMany() تغییر کند و بقیه کامپوننت‌ها دست‌نخورده بمانند.
+ * ساختار محصول — عیناً منطبق با مدل Product در prisma/schema.prisma.
+ * منبع واقعی این داده از prisma.product.findMany() است (src/lib/data/products.ts).
  */
 export interface Product {
   id: string;
@@ -32,6 +35,14 @@ export interface Product {
   rating?: number;
   reviewsCount?: number;
   createdAt: string;
+  /** فقط توسط /api/products پر می‌شود: قیمت نهایی محاسبه‌شده با قیمت لحظه‌ای طلا */
+  finalPrice?: number;
+}
+
+export interface GoldPrice {
+  pricePerGram18k: number;
+  changePercent: number;
+  updatedAt: string;
 }
 
 export interface CartItem {

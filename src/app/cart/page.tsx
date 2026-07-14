@@ -3,14 +3,44 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/context/cart-context";
-import { calculateGoldPrice } from "@/lib/price";
 import { toToman } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
+import { Minus, Plus, Trash2, ShoppingBag, AlertTriangle, Loader2 } from "lucide-react";
 import { SHIPPING } from "@/lib/constants";
 
 export default function CartPage() {
-  const { items, updateQuantity, removeItem, totalPrice, getProduct } = useCart();
+  const {
+    items,
+    updateQuantity,
+    removeItem,
+    totalPrice,
+    getProduct,
+    productsLoading,
+    productsError,
+    retryLoadProducts,
+  } = useCart();
+
+  if (productsLoading) {
+    return (
+      <div className="container flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin text-gold-500" />
+        <p className="text-sm">در حال دریافت اطلاعات سبد خرید...</p>
+      </div>
+    );
+  }
+
+  if (productsError) {
+    return (
+      <div className="container flex flex-col items-center justify-center gap-3 py-24 text-center">
+        <AlertTriangle className="h-10 w-10 text-destructive" />
+        <p className="font-bold">ارتباط با سرور برقرار نشد</p>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          چند بار تلاش کردیم ولی جواب نگرفتیم. ممکن است اتصال اینترنت یا سرور موقتاً قطع باشد.
+        </p>
+        <Button variant="gold" onClick={retryLoadProducts}>تلاش مجدد</Button>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -34,7 +64,6 @@ export default function CartPage() {
           {items.map((item) => {
             const product = getProduct(item.productId);
             if (!product) return null;
-            const { total } = calculateGoldPrice(product);
             return (
               <div
                 key={product.id + (item.size ?? "")}
@@ -51,7 +80,9 @@ export default function CartPage() {
                     {item.size && (
                       <p className="text-xs text-muted-foreground mt-0.5">سایز: {item.size}</p>
                     )}
-                    <p className="text-sm font-bold text-secondary mt-1">{toToman(total)}</p>
+                    <p className="text-sm font-bold text-secondary mt-1">
+                      {toToman(product.finalPrice ?? 0)}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center rounded-md border border-input">

@@ -1,8 +1,3 @@
-// اسکیمای آماده برای اتصال به پستگرس نئون
-// وقتی DATABASE_URL در .env ست شد:
-//   npx prisma db push   (یا npx prisma migrate dev)
-//   npx prisma generate
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,35 +5,7 @@ generator client {
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL") // لینک مستقیم نئون برای migration
-}
-
-enum Role {
-  CUSTOMER
-  ADMIN
-}
-
-enum Karat {
-  K18
-  K21
-  K24
-}
-
-enum Category {
-  RINGS
-  NECKLACES
-  BRACELETS
-  EARRINGS
-  SETS
-  COINS
-}
-
-enum OrderStatus {
-  PENDING_PAYMENT
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -47,36 +14,34 @@ model User {
   email         String    @unique
   phone         String?
   emailVerified DateTime?
-  password      String? // هش bcrypt، فقط برای ورود با ایمیل/رمز
+  password      String?
   image         String?
   role          Role      @default(CUSTOMER)
-
-  accounts  Account[]
-  sessions  Session[]
-  addresses Address[]
-  orders    Order[]
-  reviews   Review[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  reviews       Review[]
+  sessions      Session[]
+  wallet        Wallet?
 }
 
-// مدل‌های استاندارد next-auth (PrismaAdapter)
 model Account {
   id                String  @id @default(cuid())
   userId            String
   type              String
   provider          String
   providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
+  refresh_token     String?
+  access_token      String?
   expires_at        Int?
   token_type        String?
   scope             String?
-  id_token          String? @db.Text
+  id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -97,30 +62,42 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
+model Category {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  title     String
+  titleEn   String?
+  image     String?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
 model Product {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  title       String
-  description String   @db.Text
-  category    Category
-  karat       Karat
-  weightGrams Float
-  wage        Int // اجرت به تومان
+  id            String      @id @default(cuid())
+  slug          String      @unique
+  title         String
+  description   String
+  categoryId    String
+  karat         Karat
+  weightGrams   Float
+  wage          Int
   profitPercent Float?
   taxPercent    Float?
-  images      String[]
-  stock       Int      @default(0)
-  sizes       String[]
-  isFeatured  Boolean  @default(false)
-  isNew       Boolean  @default(false)
+  images        String[]
+  stock         Int         @default(0)
+  sizes         String[]
+  isFeatured    Boolean     @default(false)
+  isNew         Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+  category      Category    @relation(fields: [categoryId], references: [id])
+  reviews       Review[]
 
-  reviews    Review[]
-  orderItems OrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
+  @@index([categoryId])
 }
 
 model Review {
@@ -128,10 +105,10 @@ model Review {
   productId String
   userId    String
   rating    Int
-  comment   String?  @db.Text
+  comment   String?
+  createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
 }
 
 model Address {
@@ -144,37 +121,116 @@ model Address {
   postalCode  String
   phone       String
   isDefault   Boolean @default(false)
-
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  orders Order[]
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders      Order[]
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  userId        String
-  addressId     String
-  status        OrderStatus @default(PENDING_PAYMENT)
-  totalAmount   Int
-  shippingCost  Int
-  zarinpalRefId String?
+  id                String      @id @default(cuid())
+  userId            String
+  addressId         String
+  status            OrderStatus @default(PENDING_PAYMENT)
+  totalAmount       Int
+  shippingCost      Int
+  zarinpalRefId     String?
   zarinpalAuthority String?
-
-  user    User        @relation(fields: [userId], references: [id])
-  address Address     @relation(fields: [addressId], references: [id])
-  items   OrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  address           Address     @relation(fields: [addressId], references: [id])
+  user              User        @relation(fields: [userId], references: [id])
+  items             OrderItem[]
 }
 
 model OrderItem {
-  id             String  @id @default(cuid())
-  orderId        String
-  productId      String
-  quantity       Int     @default(1)
-  size           String?
+  id              String  @id @default(cuid())
+  orderId         String
+  productId       String
+  quantity        Int     @default(1)
+  size            String?
   priceAtPurchase Int
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product @relation(fields: [productId], references: [id])
+}
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int     @default(1)
+  size      String?
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId, size])
+}
+
+model Setting {
+  id                     String   @id @default("singleton")
+  goldPricePerGram18k    Int
+  goldPriceChangePercent Float    @default(0)
+  updatedAt              DateTime @updatedAt
+}
+
+model Wallet {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  balance      Int                 @default(0)
+  updatedAt    DateTime            @updatedAt
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id                String                  @id @default(cuid())
+  walletId          String
+  type              WalletTransactionType
+  status            WalletTransactionStatus @default(PENDING)
+  amount            Int
+  description       String?
+  zarinpalAuthority String?                 @unique
+  zarinpalRefId     String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  wallet            Wallet                  @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum Karat {
+  K18
+  K21
+  K24
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum WalletTransactionType {
+  DEPOSIT
+  PURCHASE
+  REFUND
+}
+
+enum WalletTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }

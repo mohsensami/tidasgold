@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { SITE, CATEGORIES } from "@/lib/constants";
+import { SITE } from "@/lib/constants";
+import { getAllCategories } from "@/lib/data/categories";
 import { ShieldCheck, Truck, Undo2, Headset } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
@@ -10,7 +11,9 @@ const trustItems = [
   { icon: Headset, title: "پشتیبانی ۷ روز هفته", desc: SITE.supportPhone },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const categories = await getAllCategories();
+
   return (
     <footer className="mt-16 border-t border-border bg-muted/40">
       <div className="container py-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -35,7 +38,7 @@ export function Footer() {
         <div>
           <h4 className="font-bold text-sm mb-3">دسته‌بندی‌ها</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            {CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <li key={c.slug}>
                 <Link href={`/products?category=${c.slug}`} className="hover:text-secondary">
                   {c.title}
@@ -63,8 +66,8 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-border py-4">
-        <p className="container text-center text-xs text-muted-foreground">
+      <div className="bg-navy-900 py-4">
+        <p className="container text-center text-xs text-navy-100/70">
           © {new Date().getFullYear()} تمامی حقوق برای {SITE.name} محفوظ است.
         </p>
       </div>

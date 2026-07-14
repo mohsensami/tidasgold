@@ -1,13 +1,18 @@
 import { calculateGoldPrice } from "@/lib/price";
 import { toToman } from "@/lib/utils";
 import type { Product } from "@/types";
-import { GOLD_PRICE } from "@/lib/constants";
 
-export function PriceBreakdown({ product }: { product: Product }) {
-  const p = calculateGoldPrice(product);
+export function PriceBreakdown({
+  product,
+  pricePerGram,
+}: {
+  product: Product;
+  pricePerGram: number;
+}) {
+  const p = calculateGoldPrice(product, pricePerGram);
 
   const rows = [
-    { label: `قیمت طلا (${product.weightGrams} گرم × ${toToman(GOLD_PRICE.pricePerGram18k)})`, value: p.goldValue },
+    { label: `قیمت طلا (${product.weightGrams} گرم × ${toToman(pricePerGram)})`, value: p.goldValue },
     { label: "اجرت ساخت", value: p.wage },
     { label: "سود فروشنده", value: p.profitAmount },
     { label: "مالیات بر ارزش افزوده", value: p.taxAmount },

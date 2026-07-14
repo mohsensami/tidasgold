@@ -1,29 +1,36 @@
 import { getAllProducts } from "@/lib/data/products";
+import { getAllCategories } from "@/lib/data/categories";
+import { getGoldPrice } from "@/lib/data/settings";
 import { calculateGoldPrice } from "@/lib/price";
 import { ProductGrid } from "@/components/product/product-grid";
 import { CategoryFilter } from "@/components/product/category-filter";
 import { SortSelect } from "@/components/product/sort-select";
-import { CATEGORIES } from "@/lib/constants";
 
 export default async function ProductsPage({
   searchParams,
 }: {
   searchParams: { category?: string; sort?: string };
 }) {
-  let products = await getAllProducts();
   const { category, sort } = searchParams;
 
-  if (category) products = products.filter((p) => p.category === category);
+  const [allProducts, categories, goldPrice] = await Promise.all([
+    getAllProducts(),
+    getAllCategories(),
+    getGoldPrice(),
+  ]);
+  const pricePerGram = goldPrice.pricePerGram18k;
+
+  let products = category ? allProducts.filter((p) => p.category === category) : allProducts;
 
   switch (sort) {
     case "price-asc":
       products = [...products].sort(
-        (a, b) => calculateGoldPrice(a).total - calculateGoldPrice(b).total
+        (a, b) => calculateGoldPrice(a, pricePerGram).total - calculateGoldPrice(b, pricePerGram).total
       );
       break;
     case "price-desc":
       products = [...products].sort(
-        (a, b) => calculateGoldPrice(b).total - calculateGoldPrice(a).total
+        (a, b) => calculateGoldPrice(b, pricePerGram).total - calculateGoldPrice(a, pricePerGram).total
       );
       break;
     case "weight-asc":
@@ -38,7 +45,7 @@ export default async function ProductsPage({
       );
   }
 
-  const categoryTitle = CATEGORIES.find((c) => c.slug === category)?.title;
+  const categoryTitle = categories.find((c) => c.slug === category)?.title;
 
   return (
     <div className="container py-8">
@@ -49,14 +56,14 @@ export default async function ProductsPage({
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">
         <aside className="hidden md:block">
-          <CategoryFilter active={category} />
+          <CategoryFilter categories={categories} active={category} />
         </aside>
 
         <div>
           <div className="mb-4 flex justify-end">
             <SortSelect />
           </div>
-          <ProductGrid products={products} />
+          <ProductGrid products={products} pricePerGram={pricePerGram} />
         </div>
       </div>
     </div>
