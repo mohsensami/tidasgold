@@ -85,7 +85,7 @@ export function OrdersPanel({
                           #{order.id.slice(-8)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(order.createdAt).toLocaleString("fa-IR")}
+                          {new Date(order.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">

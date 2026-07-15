@@ -8,6 +8,7 @@ export async function GoldPriceBar() {
   const time = new Date(goldPrice.updatedAt).toLocaleTimeString("fa-IR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Tehran",
   });
 
   return (

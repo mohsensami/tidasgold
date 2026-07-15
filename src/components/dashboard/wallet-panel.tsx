@@ -165,7 +165,7 @@ export function WalletPanel({
                   <div>
                     <p className="font-medium">{t.description || typeLabel[t.type]}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(t.createdAt).toLocaleString("fa-IR")}
+                      {new Date(t.createdAt).toLocaleString("fa-IR", { timeZone: "Asia/Tehran" })}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
