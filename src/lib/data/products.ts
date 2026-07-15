@@ -91,3 +91,30 @@ export async function getRelatedProducts(product: Product, limit = 4): Promise<P
   );
   return products.map(toProduct);
 }
+
+/**
+ * برای پنل مدیریت (/dashboard/products) — برخلاف toProduct بالا، اینجا
+ * categoryId خام هم لازم داریم تا فرم ویرایش بتواند دسته‌بندی فعلی را
+ * در select پیش‌فرض انتخاب کند.
+ */
+export interface AdminProduct extends Product {
+  categoryId: string;
+  categoryTitle: string;
+}
+
+export const getAllProductsForAdmin = cache(async (): Promise<AdminProduct[]> => {
+  const products = await withRetry(() =>
+    prisma.product.findMany({ include: { category: true }, orderBy: { createdAt: "desc" } })
+  );
+  return products.map((p) => ({
+    ...toProduct(p),
+    categoryId: p.categoryId,
+    categoryTitle: p.category.title,
+  }));
+});
+
+export const getProductByIdForAdmin = cache(async (id: string): Promise<AdminProduct | null> => {
+  const p = await withRetry(() => prisma.product.findUnique({ where: { id }, include: { category: true } }));
+  if (!p) return null;
+  return { ...toProduct(p), categoryId: p.categoryId, categoryTitle: p.category.title };
+});
