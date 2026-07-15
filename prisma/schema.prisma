@@ -173,10 +173,15 @@ model CartItem {
 }
 
 model Setting {
-  id                     String   @id @default("singleton")
+  id                     String    @id @default("singleton")
   goldPricePerGram18k    Int
-  goldPriceChangePercent Float    @default(0)
-  updatedAt              DateTime @updatedAt
+  goldPriceChangePercent Float     @default(0)
+  // زمانی که خودِ brsapi برای این قیمت گزارش کرده (از فیلد time_unix پاسخش)،
+  // نه زمانی که ما آن را در دیتابیس نوشتیم. تازگی/قدیمی‌بودن قیمت را از
+  // روی همین فیلد می‌سنجیم، نه updatedAt (که فقط زمان آخرین نوشتنِ ما در
+  // دیتابیس است و حتی اگر مقدار قیمت عوض نشده باشد هم آپدیت می‌شود).
+  goldPriceSourceTime    DateTime?
+  updatedAt              DateTime  @updatedAt
 }
 
 model Wallet {

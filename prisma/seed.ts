@@ -25,6 +25,7 @@ async function main() {
       id: "singleton",
       goldPricePerGram18k: 6_850_000, // این عدد را هر بار که خواستی از پنل/دیتابیس آپدیت کن
       goldPriceChangePercent: 0.8,
+      goldPriceSourceTime: new Date(),
     },
   });
   console.log("✅ قیمت طلا تنظیم شد");

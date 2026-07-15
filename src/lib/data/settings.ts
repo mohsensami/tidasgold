@@ -16,19 +16,31 @@ export async function getGoldPrice(): Promise<GoldPrice> {
   return {
     pricePerGram18k: setting.goldPricePerGram18k,
     changePercent: setting.goldPriceChangePercent,
-    updatedAt: setting.updatedAt.toISOString(),
+    // زمانی که خودِ brsapi این قیمت را گزارش کرده (از time_unix)؛ اگر
+    // هنوز هیچ sync موفقی انجام نشده (مقدار null)، به updatedAt برمی‌گردیم
+    // که فقط برای جلوگیری از crash روی داده‌ی seed اولیه است.
+    updatedAt: (setting.goldPriceSourceTime ?? setting.updatedAt).toISOString(),
   };
 }
 
-export async function updateGoldPrice(pricePerGram18k: number, changePercent: number) {
+export async function updateGoldPrice(
+  pricePerGram18k: number,
+  changePercent: number,
+  sourceTime: Date
+) {
   return withRetry(() =>
     prisma.setting.upsert({
       where: { id: "singleton" },
-      update: { goldPricePerGram18k: pricePerGram18k, goldPriceChangePercent: changePercent },
+      update: {
+        goldPricePerGram18k: pricePerGram18k,
+        goldPriceChangePercent: changePercent,
+        goldPriceSourceTime: sourceTime,
+      },
       create: {
         id: "singleton",
         goldPricePerGram18k: pricePerGram18k,
         goldPriceChangePercent: changePercent,
+        goldPriceSourceTime: sourceTime,
       },
     })
   );

@@ -17,6 +17,17 @@ export const metadata: Metadata = {
   description: SITE.description,
 };
 
+/**
+ * بدون این خط، Next.js چون هیچ‌کدام از صفحات از cookies/headers استفاده
+ * نمی‌کنند، کل سایت (از جمله Header و GoldPriceBar) را موقع build یک‌بار
+ * استاتیک رندر می‌کند و همان HTML را برای همه نمایش می‌دهد — یعنی قیمت
+ * و «آخرین بروزرسانی» بالای هدر برای همیشه همان لحظه‌ی build می‌ماند،
+ * حتی اگر میدلور مقدار را در دیتابیس آپدیت کند. force-dynamic یعنی هر
+ * درخواست، Header/GoldPriceBar و صفحات محصولات را دوباره از دیتابیس
+ * می‌خوانند و قیمت نمایش داده‌شده همیشه با مقدار واقعی دیتابیس یکی است.
+ */
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fa" dir="rtl" className={vazir.variable}>
