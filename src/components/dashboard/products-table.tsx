@@ -22,10 +22,10 @@ export function ProductsTable({
 }) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   async function handleDelete(product: AdminProduct) {
-    if (!confirm(`آیا از حذف «${product.title}» مطمئن هستید؟ این عمل قابل بازگشت نیست.`)) return;
-
+    setConfirmingId(null);
     setDeletingId(product.id);
     try {
       const result = await deleteProduct(product.id);
@@ -100,24 +100,38 @@ export function ProductsTable({
                 </td>
                 <td className="p-3">
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" asChild aria-label="ویرایش">
-                      <Link href={`/dashboard/products/${p.id}/edit`}>
-                        <Pencil className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="حذف"
-                      disabled={deletingId === p.id}
-                      onClick={() => handleDelete(p)}
-                    >
-                      {deletingId === p.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      )}
-                    </Button>
+                    {confirmingId === p.id ? (
+                      <>
+                        <span className="text-xs text-muted-foreground ml-1">مطمئنید؟</span>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingId === p.id}
+                          onClick={() => handleDelete(p)}
+                        >
+                          {deletingId === p.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "بله، حذف کن"}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmingId(null)}>
+                          انصراف
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="ghost" size="icon" asChild aria-label="ویرایش">
+                          <Link href={`/dashboard/products/${p.id}/edit`}>
+                            <Pencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="حذف"
+                          onClick={() => setConfirmingId(p.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

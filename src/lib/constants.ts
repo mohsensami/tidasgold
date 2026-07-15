@@ -12,7 +12,7 @@ export const PRICE_FORMULA_DEFAULTS = {
 } as const;
 
 export const SITE = {
-  name: "تیداس گلد",
+  name: "طلاگستر",
   nameEn: "TalaGold",
   description:
     "فروشگاه آنلاین طلا و جواهر — خرید امن گردنبند، دستبند، انگشتر و گوشواره با گارانتی اصالت و قیمت لحظه‌ای طلا",

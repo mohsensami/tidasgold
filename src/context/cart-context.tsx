@@ -21,7 +21,13 @@ interface CartContextValue {
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
-const STORAGE_KEY = "talagold-cart";
+
+// سبدِ مهمان (قبل از ورود) فقط با این کلید در localStorage نگه داشته می‌شود.
+// عمداً کلید سبدِ کاربرِ لاگین‌کرده را در localStorage ذخیره نمی‌کنیم؛ وگرنه
+// روی یک مرورگر مشترک، بعد از خروج، سبدِ حساب قبلی به‌عنوان «سبد مهمان» به
+// حساب کاربریِ بعدی که وارد می‌شود merge می‌شود و باعث می‌شود سبد خرید انگار
+// خودش عوض می‌شود یا بین ورود/خروج پایدار نمی‌ماند.
+const GUEST_STORAGE_KEY = "talagold-cart-guest";
 
 // چند بار با فاصله‌زمانی افزایشی تلاش کن؛ برای درخواست‌های fetch سمت کلاینت
 // (مشابه src/lib/db-retry.ts که سمت سرور استفاده می‌شود)
@@ -40,14 +46,25 @@ async function fetchWithRetry(url: string, init?: RequestInit, attempts = 3): Pr
   throw lastErr;
 }
 
+function readGuestCart(): CartItem[] {
+  try {
+    const raw = localStorage.getItem(GUEST_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { status } = useSession();
   const [items, setItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const hasMergedRef = useRef(false);
+  // وقتی true شود یعنی سبد خرید از منبع درست (localStorage مهمان یا سبد
+  // merge‌شده‌ی دیتابیس) خوانده شده و از این به بعد تغییرات را می‌شود ذخیره کرد.
+  const [ready, setReady] = useState(false);
+  const prevStatusRef = useRef<"loading" | "authenticated" | "unauthenticated">("loading");
 
   function loadProducts() {
     setProductsLoading(true);
@@ -62,51 +79,79 @@ export function CartProvider({ children }: { children: ReactNode }) {
       .finally(() => setProductsLoading(false));
   }
 
-  // مرحله ۱: خواندن سبد مهمان از localStorage و گرفتن لیست محصولات
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
-    } catch {
-      // نادیده گرفتن خطای پارس
-    }
-    setHydrated(true);
     loadProducts();
   }, []);
 
-  // مرحله ۲: وقتی کاربر لاگین می‌کند، سبد مهمان را با سبد دیتابیسش ادغام کن
+  // مدیریت سبد خرید بر اساس وضعیت ورود کاربر.
+  // فقط وقتی وضعیت واقعاً مشخص شود (نه در حالت loading) اجرا می‌شود، و فقط
+  // یک‌بار برای هر انتقالِ واقعیِ وضعیت (نه رندرهای تکراری با همان وضعیت).
   useEffect(() => {
-    if (status !== "authenticated" || hasMergedRef.current || !hydrated) return;
-    hasMergedRef.current = true;
+    if (status === "loading") return;
+    if (prevStatusRef.current === status) return;
+    const cameFromLoading = prevStatusRef.current === "loading";
+    prevStatusRef.current = status;
 
-    fetchWithRetry("/api/cart/merge", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    })
-      .then((res) => res.json())
-      .then((data) => setItems(data.items ?? []))
-      .catch(() => {
-        // اگه ادغام شکست خورد، سبد مهمانِ فعلی همچنان local می‌ماند؛ کاربر چیزی از دست نمی‌دهد
-        toast.error("سبد خرید قبلی شما هنگام ورود سینک نشد، دوباره تلاش می‌کنیم");
-      });
-  }, [status, hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (status === "authenticated") {
+      // کاربر تازه لاگین کرده (یا صفحه با سشن معتبر لود شده): هر سبدِ مهمانِ
+      // احتمالی را با سبدِ دیتابیسِ همین کاربر merge کن. اگر سبد مهمانی نبود
+      // (خالی)، merge عملاً معادل خواندن سبد فعلی همان کاربر از دیتابیس است —
+      // یعنی سبد قبلیِ او دقیقاً حفظ می‌شود.
+      const guestItems = readGuestCart();
+      setReady(false);
+      fetchWithRetry("/api/cart/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: guestItems }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          setItems(data.items ?? []);
+          // سبد مهمان دیگر لازم نیست؛ از این به بعد منبع اصلی دیتابیس است.
+          localStorage.removeItem(GUEST_STORAGE_KEY);
+        })
+        .catch(() => {
+          toast.error("سبد خرید با حساب شما همگام نشد، دوباره تلاش می‌کنیم");
+          setItems(guestItems);
+        })
+        .finally(() => setReady(true));
+    } else {
+      // کاربر مهمان یا تازه از حساب خارج شده: سبد را فقط از سبدِ مهمانِ
+      // localStorage بخوان (نه چیزی که از حساب کاربریِ قبلی مانده).
+      if (!cameFromLoading) {
+        // یعنی این یک خروج واقعی از حساب بود؛ سبدِ حساب قبلی نباید برای
+        // نشستِ مهمانِ بعدی (یا کاربر دیگر روی همین مرورگر) باقی بماند.
+        localStorage.removeItem(GUEST_STORAGE_KEY);
+        setItems([]);
+      } else {
+        setItems(readGuestCart());
+      }
+      setReady(true);
+    }
+  }, [status]);
 
-  // مرحله ۳: هر تغییری در سبد را در localStorage ذخیره کن، و اگر لاگین است در دیتابیس هم
+  // هر تغییری در سبد را ذخیره کن: مهمان → localStorage، کاربر لاگین‌کرده → دیتابیس.
+  // قبل از ready شدن چیزی ذخیره نمی‌شود تا داده‌ی درست با داده‌ی موقتِ مرحله‌ی
+  // بارگذاری اشتباهی جای‌گزین نشود.
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    if (!ready) return;
 
-    if (status === "authenticated" && hasMergedRef.current) {
+    if (status === "authenticated") {
       fetchWithRetry("/api/cart", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items }),
       }).catch(() => {
-        // سبد همچنان در localStorage امن است؛ دفعه بعد که تغییر کند دوباره تلاش می‌شود
+        // سبد همچنان در state امن است؛ دفعه بعد که تغییر کند دوباره تلاش می‌شود
       });
+    } else {
+      try {
+        localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(items));
+      } catch {
+        // نادیده گرفتن خطای ذخیره (مثلاً حالت خصوصی مرورگر)
+      }
     }
-  }, [items, hydrated, status]);
+  }, [items, ready, status]);
 
   function getProduct(productId: string) {
     return products.find((p) => p.id === productId);

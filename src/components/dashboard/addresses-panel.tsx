@@ -123,14 +123,15 @@ export function AddressesPanel({ addresses }: { addresses: AddressRecord[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"idle" | "new" | string>("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   function refreshAndClose() {
     setMode("idle");
     router.refresh();
   }
 
-  async function handleDelete(address: AddressRecord) {
-    if (!confirm(`آیا از حذف آدرس «${address.fullName}» مطمئن هستید؟`)) return;
+  async function confirmDelete(address: AddressRecord) {
+    setConfirmingId(null);
     setBusyId(address.id);
     const result = await deleteAddress(address.id);
     if (result.error) toast.error(result.error);
@@ -200,31 +201,45 @@ export function AddressesPanel({ addresses }: { addresses: AddressRecord[] }) {
                   </p>
 
                   <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
-                    <Button variant="ghost" size="sm" onClick={() => setMode(address.id)}>
-                      <Pencil className="h-3.5 w-3.5" /> ویرایش
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={busyId === address.id}
-                      onClick={() => handleDelete(address)}
-                    >
-                      {busyId === address.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      )}
-                      حذف
-                    </Button>
-                    {!address.isDefault && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={busyId === address.id}
-                        onClick={() => handleSetDefault(address)}
-                      >
-                        <Star className="h-3.5 w-3.5" /> پیش‌فرض کن
-                      </Button>
+                    {confirmingId === address.id ? (
+                      <>
+                        <span className="text-xs text-muted-foreground">حذف این آدرس مطمئنید؟</span>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={busyId === address.id}
+                          onClick={() => confirmDelete(address)}
+                        >
+                          {busyId === address.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            "بله، حذف کن"
+                          )}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmingId(null)}>
+                          انصراف
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="ghost" size="sm" onClick={() => setMode(address.id)}>
+                          <Pencil className="h-3.5 w-3.5" /> ویرایش
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setConfirmingId(address.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          حذف
+                        </Button>
+                        {!address.isDefault && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={busyId === address.id}
+                            onClick={() => handleSetDefault(address)}
+                          >
+                            <Star className="h-3.5 w-3.5" /> پیش‌فرض کن
+                          </Button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

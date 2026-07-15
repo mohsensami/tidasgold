@@ -78,8 +78,13 @@ export async function deleteAddress(id: string): Promise<ActionResult> {
   if (!userId) return { error: "ابتدا وارد حساب کاربری شوید" };
 
   try {
-    const existing = await withRetry(() => prisma.address.findFirst({ where: { id, userId } }));
+    const existing = await withRetry(() =>
+      prisma.address.findFirst({ where: { id, userId }, include: { _count: { select: { orders: true } } } })
+    );
     if (!existing) return { error: "آدرس پیدا نشد" };
+    if (existing._count.orders > 0) {
+      return { error: "این آدرس در سفارش‌های قبلی استفاده شده و قابل حذف نیست" };
+    }
 
     await withRetry(() => prisma.address.delete({ where: { id } }));
     revalidatePath("/dashboard/addresses");
