@@ -2,12 +2,13 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
-import { LayoutDashboard, Wallet, LogOut, Gem } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Gem, ReceiptText } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 const navItems = [
   { href: "/dashboard", label: "نمای کلی", icon: LayoutDashboard },
   { href: "/dashboard/wallet", label: "کیف پول", icon: Wallet },
+  { href: "/dashboard/orders", label: "وضعیت پرداخت", icon: ReceiptText },
 ];
 
 const adminNavItems = [{ href: "/dashboard/products", label: "محصولات", icon: Gem }];

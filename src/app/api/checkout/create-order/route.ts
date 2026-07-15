@@ -4,20 +4,18 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { withRetry, DatabaseUnavailableError } from '@/lib/db-retry';
 import { addressSchema } from '@/lib/validations/checkout';
-import { calculateGoldPrice } from '@/lib/price';
-import { getGoldPrice } from '@/lib/data/settings';
-import { SHIPPING } from '@/lib/constants';
+import { buildOrderPricing } from '@/lib/checkout-helpers';
+import { SITE } from '@/lib/constants';
+import { requestPayment, ZarinpalError } from '@/lib/zarinpal';
 import type { CartItem } from '@/types';
 
 /**
- * ثبت سفارش واقعی در دیتابیس (Order + OrderItem + Address).
- * قیمت‌ها اینجا دوباره سمت سرور با قیمت لحظه‌ای طلا محاسبه می‌شوند
- * (نه با چیزی که کلاینت فرستاده) تا کسی نتواند قیمت را دستکاری کند.
- *
- * TODO مرحله بعد: بعد از ساخت Order با status=PENDING_PAYMENT، با API
- * زرین‌پال (PaymentRequest) یک authority بگیر و کاربر را به
- * https://www.zarinpal.com/pg/StartPay/{authority} بفرست. بعد از بازگشت
- * کاربر، در یک روت verify با PaymentVerification وضعیت را PROCESSING کن.
+ * ثبت سفارش واقعی در دیتابیس (Order + OrderItem + Address) و سپس اتصال
+ * به درگاه زرین‌پال، دقیقاً مثل فرآیند شارژ کیف پول (src/app/api/wallet/charge/route.ts):
+ * سفارش با status=PENDING_PAYMENT ساخته می‌شود، از زرین‌پال authority گرفته
+ * می‌شود و روی سفارش ذخیره می‌شود، و paymentUrl به کلاینت برمی‌گردد تا
+ * کاربر را کامل به درگاه ریدایرکت کند. تایید نهایی در
+ * src/app/api/checkout/verify/route.ts انجام می‌شود.
  */
 export async function POST(req: Request) {
     const session = await getServerSession(authOptions);
@@ -38,26 +36,7 @@ export async function POST(req: Request) {
     }
 
     try {
-        const [goldPrice, products] = await Promise.all([
-            getGoldPrice(),
-            withRetry(() => prisma.product.findMany({ where: { id: { in: items.map((i) => i.productId) } } })),
-        ]);
-
-        let totalAmount = 0;
-        const orderItemsData = items.map((item) => {
-            const product = products.find((p) => p.id === item.productId);
-            if (!product) throw new Error(`محصول ${item.productId} پیدا نشد`);
-            const price = calculateGoldPrice(product, goldPrice.pricePerGram18k).total;
-            totalAmount += price * item.quantity;
-            return {
-                productId: item.productId,
-                quantity: item.quantity,
-                size: item.size,
-                priceAtPurchase: price,
-            };
-        });
-
-        const shippingCost = totalAmount >= SHIPPING.freeShippingThreshold ? 0 : SHIPPING.standardCost;
+        const { orderItemsData, shippingCost, finalAmount } = await buildOrderPricing(items);
 
         const order = await withRetry(() =>
             prisma.order.create({
@@ -68,7 +47,7 @@ export async function POST(req: Request) {
                         },
                     },
 
-                    totalAmount: totalAmount + shippingCost,
+                    totalAmount: finalAmount,
                     shippingCost,
                     status: 'PENDING_PAYMENT',
 
@@ -86,11 +65,28 @@ export async function POST(req: Request) {
             }),
         );
 
-        return NextResponse.json({ orderId: order.id });
+        const callbackUrl = `${SITE.url}/api/checkout/verify`;
+
+        const { authority, paymentUrl } = await requestPayment({
+            amountToman: finalAmount,
+            description: `پرداخت سفارش ${SITE.name}`,
+            callbackUrl,
+            mobile: parsedAddress.data.phone,
+            email: session?.user?.email ?? undefined,
+        });
+
+        await withRetry(() =>
+            prisma.order.update({ where: { id: order.id }, data: { zarinpalAuthority: authority } }),
+        );
+
+        return NextResponse.json({ paymentUrl });
     } catch (err) {
+        if (err instanceof ZarinpalError) {
+            return NextResponse.json({ error: err.message }, { status: 502 });
+        }
         const isDbError = err instanceof DatabaseUnavailableError;
         return NextResponse.json(
-            { error: isDbError ? err.message : 'خطا در ثبت سفارش' },
+            { error: isDbError ? err.message : err instanceof Error ? err.message : 'خطا در ثبت سفارش' },
             { status: isDbError ? 503 : 500 },
         );
     }
