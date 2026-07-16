@@ -52,65 +52,101 @@ async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: strin
     return { synced: false, reason: "missing-api-key" };
   }
 
-  const res = await fetch(`https://api.brsapi.ir/Market/Gold_Currency.php?key=${apiKey}`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(8000),
-  });
+  // ⚠️ این تابع دیگر هیچ‌وقت خطا throw نمی‌کند (حتی اگر brsapi موقتاً از کار
+  // بیفتد، تایم‌اوت بدهد، یا پاسخش غیرمنتظره باشد). چون این تابع مستقیماً از
+  // checkout-helpers.ts هم صدا زده می‌شود، پرتاب خطا از اینجا یعنی کل فرآیند
+  // پرداخت با ۵۰۰ بترکد فقط چون یک درخواست شبکه‌ای موقتاً fail شده — در حالی
+  // که قیمتِ موجود در دیتابیس (هر چقدر هم که چند دقیقه قدیمی باشد) کاملاً
+  // برای ادامه‌ی کار قابل استفاده است.
+  try {
+    const res = await fetch(`https://api.brsapi.ir/Market/Gold_Currency.php?key=${apiKey}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
 
-  if (!res.ok) {
-    throw new Error(`brsapi پاسخ ${res.status} برگرداند`);
+    if (!res.ok) {
+      console.error(`[gold-price-sync] brsapi پاسخ ${res.status} برگرداند`);
+      return { synced: false, reason: `http-${res.status}` };
+    }
+
+    const data = await res.json();
+    const gold18k = extractGold18k(data);
+
+    if (!gold18k) {
+      // این لاگ حیاتی‌ست: تنها راهی که می‌فهمیم ساختار واقعی پاسخ brsapi
+      // چه شکلی‌ست (چون خودِ دامنه‌ی brsapi.ir قابل fetch مستقیم برای من
+      // نیست) همین خروجی خام تو لاگ‌های Vercel است.
+      console.error(
+        "[gold-price-sync] آیتم طلای ۱۸ عیار پیدا نشد. پاسخ خام برای بررسی:",
+        JSON.stringify(data).slice(0, 2000)
+      );
+      return { synced: false, reason: "18k-not-found" };
+    }
+
+    await updateGoldPrice(gold18k.pricePerGram, gold18k.changePercent, gold18k.sourceTime);
+    return { synced: true };
+  } catch (err) {
+    console.error("[gold-price-sync] خطا در گرفتن/پردازش قیمت از brsapi:", err);
+    return { synced: false, reason: "fetch-error" };
   }
-
-  const data = await res.json();
-  const gold18k = extractGold18k(data);
-
-  if (!gold18k) {
-    console.warn("[gold-price-sync] آیتم طلای ۱۸ عیار در پاسخ brsapi پیدا نشد");
-    return { synced: false, reason: "18k-not-found" };
-  }
-
-  await updateGoldPrice(gold18k.pricePerGram, gold18k.changePercent, gold18k.sourceTime);
-  return { synced: true };
 }
 
 /**
- * پاسخ brsapi برای این وب‌سرویس معمولاً یک آرایه‌ی gold شامل چند نماد است
- * (طلای ۱۸ عیار، طلای ۲۴ عیار، مثقال، سکه و ...). این تابع سعی می‌کند
- * با چند روش مختلف (name_en، symbol، یا خود متن فارسی) آیتم ۱۸ عیار را
- * پیدا کند تا اگر ساختار دقیق پاسخ کمی فرق داشت هم کار کند.
- *
- * ⚠️ نکته مهم: قیمت‌های brsapi را با مقدار فعلی goldPricePerGram18k در
- * seed (۶,۸۵۰,۰۰۰ تومان) مقایسه کن. اگر عددی که برگشت ده برابر بزرگ‌تر
- * بود یعنی API ریال برمی‌گردونه، نه تومان — در اون صورت باید تقسیم بر
- * ۱۰ رو به این تابع اضافه کنی.
+ * پاسخ brsapi را به‌شکلی که هر مقدار به‌ازای گرم طلای ۱۸ عیار را پیدا کند
+ * پردازش می‌کند. چون ساختار دقیق پاسخِ زنده‌ی brsapi را نمی‌توانم مستقیم
+ * fetch کنم (دامنه‌اش برای من قابل‌دسترس نیست)، این تابع را عمداً خیلی
+ * انعطاف‌پذیر نوشته‌ام: هم آرایه‌ی مسطح، هم آبجکتی با چند دسته‌ی تودرتو
+ * (gold/currency/gold_currency/...) را پشتیبانی می‌کند.
  */
 function extractGold18k(
   data: unknown
 ): { pricePerGram: number; changePercent: number; sourceTime: Date } | null {
-  const list: any[] = Array.isArray((data as any)?.gold)
-    ? (data as any).gold
-    : Array.isArray(data)
-      ? (data as any[])
-      : [];
+  const flat: any[] = [];
 
-  const item = list.find((it) => {
-    const nameEn = String(it?.name_en ?? it?.symbol ?? "").toUpperCase();
-    const name = String(it?.name ?? "");
-    return (
-      nameEn.includes("18K") ||
-      nameEn.includes("GOLD_18") ||
-      nameEn === "IR_GOLD_18K" ||
-      name.includes("۱۸ عیار") ||
-      name.includes("18 عیار")
-    );
+  function collect(node: unknown) {
+    if (Array.isArray(node)) {
+      for (const el of node) {
+        if (el && typeof el === "object" && !Array.isArray(el)) flat.push(el);
+        else collect(el);
+      }
+    } else if (node && typeof node === "object") {
+      for (const value of Object.values(node)) collect(value);
+    }
+  }
+  collect(data);
+
+  const item = flat.find((it) => {
+    const nameEn = String(it?.name_en ?? it?.symbol ?? it?.name_lat ?? "").toUpperCase();
+    const name = String(it?.name ?? it?.title ?? "");
+    const has18 = nameEn.includes("18") || name.includes("۱۸") || name.includes("18");
+    const isGoldish =
+      nameEn.includes("GOLD") ||
+      nameEn.includes("AYAR") ||
+      name.includes("طلا") ||
+      name.includes("عیار");
+    return has18 && isGoldish;
   });
 
   if (!item) return null;
 
-  const price = Number(item.price ?? item.value ?? item.p);
-  const changePercent = Number(item.change_percent ?? item.changePercent ?? item.drpercent ?? 0);
+  let price = Number(item.price ?? item.value ?? item.p ?? item.close ?? item.last);
+  const changePercent = Number(
+    item.change_percent ?? item.changePercent ?? item.drpercent ?? item.percent ?? 0
+  );
 
   if (!Number.isFinite(price) || price <= 0) return null;
+
+  // برخی endpointهای برسی‌اِپیآی مقدار را به ریال برمی‌گردانند نه تومان.
+  // قیمت واقعی گرم طلای ۱۸ عیار همیشه بین چند صد هزار تا چند ده میلیون
+  // تومان است؛ اگر عدد خیلی بزرگ‌تر از این بازه بود (یعنی به‌احتمال زیاد
+  // ریال است)، به تومان تبدیلش می‌کنیم تا نمایش/محاسبه‌ی قیمت محصولات
+  // ده‌برابرِ واقعی نشود.
+  if (price > 60_000_000) {
+    console.warn(
+      `[gold-price-sync] مقدار برگشتی (${price}) خیلی بزرگ به‌نظر می‌رسد؛ به‌عنوان ریال در نظر گرفته شد و بر ۱۰ تقسیم شد`
+    );
+    price = price / 10;
+  }
 
   // time_unix ثانیه‌ای‌ست (نه میلی‌ثانیه)، پس ضرب در ۱۰۰۰ لازم است.
   // اگر به هر دلیلی این فیلد در پاسخ نبود، به لحظه‌ی الان برمی‌گردیم؛
