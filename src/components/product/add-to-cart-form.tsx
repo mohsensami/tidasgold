@@ -5,13 +5,19 @@ import { useCart } from "@/context/cart-context";
 import { Button } from "@/components/ui/button";
 import type { Product } from "@/types";
 import { cn } from "@/lib/utils";
-import { Minus, Plus, ShoppingBag } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Heart, Scale } from "lucide-react";
+import { useWishlist } from "@/context/wishlist-context";
+import { useCompare } from "@/context/compare-context";
 
 export function AddToCartForm({ product }: { product: Product }) {
   const { addItem } = useCart();
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const { isComparing, toggleCompare } = useCompare();
   const [size, setSize] = useState<string | undefined>(product.sizes?.[0]);
   const [qty, setQty] = useState(1);
   const outOfStock = product.stock <= 0;
+  const wishlisted = isWishlisted(product.id);
+  const comparing = isComparing(product.id);
 
   return (
     <div className="space-y-5">
@@ -70,6 +76,25 @@ export function AddToCartForm({ product }: { product: Product }) {
         <ShoppingBag className="h-5 w-5" />
         {outOfStock ? "ناموجود" : "افزودن به سبد خرید"}
       </Button>
+
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          className={cn("flex-1", wishlisted && "border-red-400 text-red-500")}
+          onClick={() => toggleWishlist(product.id)}
+        >
+          <Heart className={cn("h-4 w-4", wishlisted && "fill-red-500")} />
+          {wishlisted ? "در علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
+        </Button>
+        <Button
+          variant="outline"
+          className={cn("flex-1", comparing && "border-secondary text-secondary")}
+          onClick={() => toggleCompare(product.id)}
+        >
+          <Scale className="h-4 w-4" />
+          {comparing ? "در حال مقایسه" : "مقایسه"}
+        </Button>
+      </div>
     </div>
   );
 }

@@ -108,6 +108,17 @@ async function main() {
   }
   console.log(`✅ ${PRODUCTS.length} محصول ساخته/بروزرسانی شد`);
 
+  // ── علاقه‌مندی نمونه (فقط برای تست راحت‌تر /dashboard/wishlist) ────────
+  const firstProduct = await prisma.product.findFirst({ orderBy: { createdAt: "desc" } });
+  if (firstProduct) {
+    await prisma.wishlistItem.upsert({
+      where: { userId_productId: { userId: demoUser.id, productId: firstProduct.id } },
+      update: {},
+      create: { userId: demoUser.id, productId: firstProduct.id },
+    });
+    console.log("✅ یک آیتم نمونه به علاقه‌مندی‌های کاربر demo اضافه شد");
+  }
+
   console.log("🌱 seed کامل شد.");
 }
 

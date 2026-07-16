@@ -2,18 +2,22 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authOptions } from "@/lib/auth";
-import { LayoutDashboard, Wallet, LogOut, Gem, ReceiptText, User, MapPin } from "lucide-react";
+import { LayoutDashboard, Wallet, LogOut, Gem, ReceiptText, User, MapPin, ClipboardList, Heart } from "lucide-react";
 import { SignOutButton } from "@/components/dashboard/sign-out-button";
 
 const navItems = [
   { href: "/dashboard", label: "نمای کلی", icon: LayoutDashboard },
   { href: "/dashboard/profile", label: "اطلاعات حساب", icon: User },
   { href: "/dashboard/addresses", label: "آدرس‌های من", icon: MapPin },
+  { href: "/dashboard/wishlist", label: "علاقه‌مندی‌ها", icon: Heart },
   { href: "/dashboard/wallet", label: "کیف پول", icon: Wallet },
   { href: "/dashboard/orders", label: "وضعیت پرداخت", icon: ReceiptText },
 ];
 
-const adminNavItems = [{ href: "/dashboard/products", label: "محصولات", icon: Gem }];
+const adminNavItems = [
+  { href: "/dashboard/products", label: "محصولات", icon: Gem },
+  { href: "/dashboard/admin/orders", label: "سفارشات", icon: ClipboardList },
+];
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);

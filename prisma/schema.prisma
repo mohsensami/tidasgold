@@ -26,6 +26,7 @@ model User {
   reviews       Review[]
   sessions      Session[]
   wallet        Wallet?
+  wishlist      WishlistItem[]
 }
 
 model Account {
@@ -96,6 +97,7 @@ model Product {
   orderItems    OrderItem[]
   category      Category    @relation(fields: [categoryId], references: [id])
   reviews       Review[]
+  wishlistedBy  WishlistItem[]
 
   @@index([categoryId])
 }
@@ -170,6 +172,20 @@ model CartItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([cartId, productId, size])
+}
+
+// علاقه‌مندی‌ها؛ فقط برای کاربر لاگین‌کرده ذخیره می‌شود (نه مهمان)،
+// بر خلاف مقایسه‌ی محصولات که سمت کلاینت (localStorage) نگه داشته می‌شود.
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
 }
 
 model Setting {

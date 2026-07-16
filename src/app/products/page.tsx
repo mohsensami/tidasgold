@@ -9,9 +9,9 @@ import { SortSelect } from "@/components/product/sort-select";
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: { category?: string; sort?: string };
+  searchParams: { category?: string; sort?: string; q?: string };
 }) {
-  const { category, sort } = searchParams;
+  const { category, sort, q } = searchParams;
 
   const [allProducts, categories, goldPrice] = await Promise.all([
     getAllProducts(),
@@ -21,6 +21,13 @@ export default async function ProductsPage({
   const pricePerGram = goldPrice.pricePerGram18k;
 
   let products = category ? allProducts.filter((p) => p.category === category) : allProducts;
+
+  if (q?.trim()) {
+    const needle = q.trim().toLowerCase();
+    products = products.filter(
+      (p) => p.title.toLowerCase().includes(needle) || p.description.toLowerCase().includes(needle)
+    );
+  }
 
   switch (sort) {
     case "price-asc":
@@ -46,12 +53,11 @@ export default async function ProductsPage({
   }
 
   const categoryTitle = categories.find((c) => c.slug === category)?.title;
+  const heading = q?.trim() ? `نتایج جستجو برای «${q.trim()}»` : (categoryTitle ?? "همه محصولات");
 
   return (
     <div className="container py-8">
-      <h1 className="font-display text-2xl font-bold mb-1">
-        {categoryTitle ?? "همه محصولات"}
-      </h1>
+      <h1 className="font-display text-2xl font-bold mb-1">{heading}</h1>
       <p className="text-sm text-muted-foreground mb-6">{products.length} محصول</p>
 
       <div className="grid gap-8 md:grid-cols-[220px_1fr]">

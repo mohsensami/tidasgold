@@ -3,6 +3,8 @@
 import { SessionProvider } from "next-auth/react";
 import { ProgressProvider } from "@bprogress/next/app";
 import { CartProvider } from "@/context/cart-context";
+import { WishlistProvider } from "@/context/wishlist-context";
+import { CompareProvider } from "@/context/compare-context";
 import { Toaster } from "sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -15,8 +17,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <SessionProvider>
         <CartProvider>
-          {children}
-          <Toaster position="top-center" richColors dir="rtl" />
+          <WishlistProvider>
+            <CompareProvider>
+              {children}
+              <Toaster position="top-center" richColors dir="rtl" />
+            </CompareProvider>
+          </WishlistProvider>
         </CartProvider>
       </SessionProvider>
     </ProgressProvider>

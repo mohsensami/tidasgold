@@ -1,13 +1,21 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import type { Product } from "@/types";
 import { calculateGoldPrice } from "@/lib/price";
-import { toToman } from "@/lib/utils";
+import { toToman, cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Star } from "lucide-react";
+import { Star, Heart, Scale } from "lucide-react";
+import { useWishlist } from "@/context/wishlist-context";
+import { useCompare } from "@/context/compare-context";
 
 export function ProductCard({ product, pricePerGram }: { product: Product; pricePerGram: number }) {
   const { total } = calculateGoldPrice(product, pricePerGram);
+  const { isWishlisted, toggleWishlist } = useWishlist();
+  const { isComparing, toggleCompare } = useCompare();
+  const wishlisted = isWishlisted(product.id);
+  const comparing = isComparing(product.id);
 
   return (
     <Link
@@ -25,6 +33,40 @@ export function ProductCard({ product, pricePerGram }: { product: Product; price
         <div className="absolute top-2 right-2 flex flex-col gap-1.5">
           {product.isNew && <Badge variant="new">جدید</Badge>}
           {product.isFeatured && <Badge variant="gold">پرفروش</Badge>}
+        </div>
+
+        {/* دکمه‌های افزودن به علاقه‌مندی و مقایسه — مثل قالب وودمارت، گوشه‌ی مخالفِ نشان‌ها */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1.5">
+          <button
+            type="button"
+            aria-label={wishlisted ? "حذف از علاقه‌مندی‌ها" : "افزودن به علاقه‌مندی‌ها"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleWishlist(product.id);
+            }}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur transition-colors hover:bg-background",
+              wishlisted && "text-red-500"
+            )}
+          >
+            <Heart className={cn("h-4 w-4", wishlisted && "fill-red-500")} />
+          </button>
+          <button
+            type="button"
+            aria-label={comparing ? "حذف از مقایسه" : "افزودن به مقایسه"}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggleCompare(product.id);
+            }}
+            className={cn(
+              "flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm backdrop-blur transition-colors hover:bg-background",
+              comparing && "text-secondary"
+            )}
+          >
+            <Scale className="h-4 w-4" />
+          </button>
         </div>
       </div>
       <div className="p-3.5">

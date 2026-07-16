@@ -5,6 +5,7 @@ import { SITE } from "@/lib/constants";
 import { Providers } from "@/components/providers";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { CompareBar } from "@/components/product/compare-bar";
 
 const vazir = Vazirmatn({
   subsets: ["arabic"],
@@ -34,8 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex flex-col font-sans antialiased">
         <Providers>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-16">{children}</main>
           <Footer />
+          <CompareBar />
         </Providers>
       </body>
     </html>

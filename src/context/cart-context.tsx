@@ -18,6 +18,11 @@ interface CartContextValue {
   getProduct: (productId: string) => Product | undefined;
   totalItems: number;
   totalPrice: number;
+  // کنترل باز/بسته بودن Sheet مینی‌سبد خرید (مثل قالب وودمارت: بعد از
+  // افزودن محصول، به‌جای رفتن به صفحه‌ی سبد خرید، این Sheet باز می‌شود)
+  isCartOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -64,6 +69,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // وقتی true شود یعنی سبد خرید از منبع درست (localStorage مهمان یا سبد
   // merge‌شده‌ی دیتابیس) خوانده شده و از این به بعد تغییرات را می‌شود ذخیره کرد.
   const [ready, setReady] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
   const prevStatusRef = useRef<"loading" | "authenticated" | "unauthenticated">("loading");
 
   function loadProducts() {
@@ -170,6 +176,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return [...prev, { productId, quantity, size }];
     });
     toast.success("به سبد خرید اضافه شد");
+    setIsCartOpen(true);
   }
 
   function removeItem(productId: string, size?: string) {
@@ -209,6 +216,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         getProduct,
         totalItems,
         totalPrice,
+        isCartOpen,
+        openCart: () => setIsCartOpen(true),
+        closeCart: () => setIsCartOpen(false),
       }}
     >
       {children}
