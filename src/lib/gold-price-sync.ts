@@ -58,9 +58,18 @@ async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: strin
   // پرداخت با ۵۰۰ بترکد فقط چون یک درخواست شبکه‌ای موقتاً fail شده — در حالی
   // که قیمتِ موجود در دیتابیس (هر چقدر هم که چند دقیقه قدیمی باشد) کاملاً
   // برای ادامه‌ی کار قابل استفاده است.
+  // ⚠️ از cache: "no-store" عمداً استفاده نمی‌کنیم. next.revalidate یعنی
+  // خودِ Next.js (نه ما) تضمین می‌کند این fetch در کل دیپلویمنت — حتی اگر
+  // ده‌ها instance سرورلسِ مختلف هم‌زمان این تابع را صدا بزنند — بیشتر از
+  // هر ۱۰ دقیقه یک‌بار واقعاً به brsapi نمی‌رود (Data Cache خودِ Next.js
+  // مشترک/توزیع‌شده است، نه یک قفل تو حافظه‌ی یک instance تنها). این یک
+  // لایه‌ی محافظتیِ اضافه‌ست، مکمل چکِ ۵ دقیقه‌ایِ روی goldPriceSourceTime
+  // که پایین‌تر هم هست (نه جایگزینش) — چون آن چک تصمیم می‌گیرد «آیا اصلاً
+  // بنویسیم رو دیتابیس»، این یکی تضمین می‌کند «به هر حال بیشتر از حدِ لازم
+  // درخواست شبکه‌ای واقعی زده نشود».
   try {
     const res = await fetch(`https://api.brsapi.ir/Market/Gold_Currency.php?key=${apiKey}`, {
-      cache: "no-store",
+      next: { revalidate: 600 },
       signal: AbortSignal.timeout(8000),
     });
 
@@ -81,6 +90,14 @@ async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: strin
         JSON.stringify(data).slice(0, 2000)
       );
       return { synced: false, reason: "18k-not-found" };
+    }
+
+    // فقط وقتی واقعاً در دیتابیس بنویس که brsapi خودش زمان جدیدتری اعلام
+    // کرده باشه (یعنی منبع واقعاً رفرش شده). اگه هنوز همون قیمتِ قبلی رو
+    // با همون زمان برگردونده (چون بازار موقتاً بسته‌ست یا API خودش هنوز
+    // آپدیت نشده)، یه نوشتن اضافه‌ی بی‌فایده رو دیتابیس نزن.
+    if (setting?.goldPriceSourceTime && gold18k.sourceTime.getTime() <= setting.goldPriceSourceTime.getTime()) {
+      return { synced: false, reason: "source-unchanged" };
     }
 
     await updateGoldPrice(gold18k.pricePerGram, gold18k.changePercent, gold18k.sourceTime);
@@ -116,6 +133,9 @@ function extractGold18k(
   collect(data);
 
   const item = flat.find((it) => {
+    // این دقیقاً همون چیزیه که خودِ brsapi برمی‌گردونه (symbol: "IR_GOLD_18K")
+    if (it?.symbol === "IR_GOLD_18K") return true;
+    // fallback برای وقتی brsapi اسم فیلدها رو عوض کنه
     const nameEn = String(it?.name_en ?? it?.symbol ?? it?.name_lat ?? "").toUpperCase();
     const name = String(it?.name ?? it?.title ?? "");
     const has18 = nameEn.includes("18") || name.includes("۱۸") || name.includes("18");
@@ -136,14 +156,15 @@ function extractGold18k(
 
   if (!Number.isFinite(price) || price <= 0) return null;
 
-  // برخی endpointهای برسی‌اِپیآی مقدار را به ریال برمی‌گردانند نه تومان.
-  // قیمت واقعی گرم طلای ۱۸ عیار همیشه بین چند صد هزار تا چند ده میلیون
-  // تومان است؛ اگر عدد خیلی بزرگ‌تر از این بازه بود (یعنی به‌احتمال زیاد
-  // ریال است)، به تومان تبدیلش می‌کنیم تا نمایش/محاسبه‌ی قیمت محصولات
-  // ده‌برابرِ واقعی نشود.
-  if (price > 60_000_000) {
+  // brsapi خودش واحد رو تو فیلد unit مشخص می‌کنه ("تومان" یا "ریال") —
+  // این قابل‌اعتمادتر از حدس زدن از روی بزرگی عدده. فقط اگر این فیلد
+  // نبود، به‌عنوان محافظ آخر از حدسِ بازه‌ی منطقی استفاده می‌کنیم.
+  const unit = String(item.unit ?? "");
+  if (unit.includes("ریال")) {
+    price = price / 10;
+  } else if (!unit && price > 60_000_000) {
     console.warn(
-      `[gold-price-sync] مقدار برگشتی (${price}) خیلی بزرگ به‌نظر می‌رسد؛ به‌عنوان ریال در نظر گرفته شد و بر ۱۰ تقسیم شد`
+      `[gold-price-sync] فیلد unit نبود و مقدار (${price}) خیلی بزرگ به‌نظر می‌رسد؛ به‌عنوان ریال در نظر گرفته شد`
     );
     price = price / 10;
   }
