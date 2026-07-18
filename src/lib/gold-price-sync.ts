@@ -10,7 +10,7 @@ const FIVE_MINUTES_MS = 5 * 60 * 1000;
  * «قدیمی» شده. این promise مشترک بین همه‌ی صدازننده‌ها (میدلور، روت sync،
  * و فرآیند checkout) به اشتراک گذاشته می‌شود.
  */
-let syncInFlight: Promise<{ synced: boolean; reason?: string }> | null = null;
+let syncInFlight: Promise<{ synced: boolean; reason?: string; detail?: string }> | null = null;
 
 /**
  * تضمین می‌کند که قیمت طلا در دیتابیس بیش از ۵ دقیقه قدیمی نباشد.
@@ -22,13 +22,13 @@ let syncInFlight: Promise<{ synced: boolean; reason?: string }> | null = null;
  * ساعت‌ها قدیمی باشد و هیچ صفحه‌ای بین این مدت لود نشده باشد که میدلور
  * را trigger کند.
  */
-export async function ensureFreshGoldPrice(): Promise<{ synced: boolean; reason?: string }> {
+export async function ensureFreshGoldPrice(): Promise<{ synced: boolean; reason?: string; detail?: string }> {
   return (syncInFlight ??= syncGoldPriceIfStale().finally(() => {
     syncInFlight = null;
   }));
 }
 
-async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: string }> {
+async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: string; detail?: string }> {
   const setting = await withRetry(() =>
     prisma.setting.findUnique({ where: { id: "singleton" } })
   );
@@ -70,7 +70,7 @@ async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: strin
   try {
     const res = await fetch(`https://api.brsapi.ir/Market/Gold_Currency.php?key=${apiKey}`, {
       next: { revalidate: 600 },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(15000),
     });
 
     if (!res.ok) {
@@ -103,8 +103,16 @@ async function syncGoldPriceIfStale(): Promise<{ synced: boolean; reason?: strin
     await updateGoldPrice(gold18k.pricePerGram, gold18k.changePercent, gold18k.sourceTime);
     return { synced: true };
   } catch (err) {
+    // ⚠️ عمداً جزئیات خطای شبکه‌ای رو (حتی اگه AbortError/timeout یا
+    // ECONNREFUSED/ENOTFOUND باشه) توی reason برمی‌گردونیم تا از همون
+    // آدرس /api/gold-price/sync (بدون نیاز به دسترسی به لاگ‌های Vercel)
+    // بشه فهمید دقیقاً چرا fetch به brsapi شکست خورده. کلید API رو از
+    // پیام حذف می‌کنیم که لو نره.
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    const cause = err instanceof Error && (err as any).cause ? String((err as any).cause) : "";
+    const sanitized = `${rawMessage} ${cause}`.replaceAll(apiKey, "***").trim();
     console.error("[gold-price-sync] خطا در گرفتن/پردازش قیمت از brsapi:", err);
-    return { synced: false, reason: "fetch-error" };
+    return { synced: false, reason: "fetch-error", detail: sanitized };
   }
 }
 
